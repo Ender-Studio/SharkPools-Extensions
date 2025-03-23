@@ -4,7 +4,7 @@
 // By: SharkPool
 // Licence: MIT
 
-// Version V.1.0.2
+// Version V.1.0.31
 
 (function (Scratch) {
   "use strict";
@@ -109,18 +109,24 @@
   newTexture(shapes.sqr, (t) => { defaultTexture = t });
 
   const tintTexture = (texture, rgb, a, emitter) => {
-    if (rgb === "rgb(255, 255, 255)") return texture;
-    // TODO this could be improved
+    if (rgb.r === 255 && rgb.g === 255 && rgb.b === 255) return texture;
     const cacheKey = rgb + a;
     if (emitter.tintCache.has(cacheKey)) return emitter.tintCache.get(cacheKey);
+
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d", { alpha: true });
     canvas.width = texture.width; canvas.height = texture.height;
+    ctx.drawImage(texture, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = (data[i] * rgb.r) / 255;
+      data[i + 1] = (data[i + 1] * rgb.g) / 255;
+      data[i + 2] = (data[i + 2] * rgb.b) / 255;
+      data[i + 3] *= a;
+    }
 
-    ctx.drawImage(texture, 0, 0, texture.width, texture.height);
-    ctx.globalCompositeOperation = "source-in";
-    ctx.globalAlpha = a; ctx.fillStyle = rgb;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.putImageData(imageData, 0, 0);
     emitter.tintCache.set(cacheKey, canvas);
     return canvas;
   };
@@ -280,9 +286,8 @@
         else if (ind > conLife - fOut) opacity = (conLife - ind) / fOut;
         opacity = Math.max(0, Math.min(opacity, 1));
         const t = Math.max(0, Math.min(ind / conLife, 1));
-        const shifted = shiftHue(sCol.val, sCol.inf, eCol.val, eCol.inf, t);
-        const rgb = `rgb(${shifted.r}, ${shifted.g}, ${shifted.b})`;
-        const brightness = 0.299 * shifted.r + 0.587 * shifted.g + 0.114 * shifted.b;
+        const rgb = shiftHue(sCol.val, sCol.inf, eCol.val, eCol.inf, t);
+        const brightness = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
   
         particle.ind++;
         particle.life -= 0.01 * delta;
@@ -839,22 +844,32 @@
 
   function add2Body() {
     var svg = document.createElement("div");
-    svg.innerHTML = `<svg><defs>
-      <linearGradient x1="100" y1="0" x2="100" y2="200" id="SPpartEngine-GRAD1" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0090ff"></stop><stop offset="50%" stop-color="#0000ff"></stop></linearGradient>
+    svg.innerHTML = `
+      <svg><defs>
+        <linearGradient x1="100" y1="0" x2="100" y2="200" id="SPpartEngine-GRAD1" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#0090ff"></stop><stop offset="50%" stop-color="#0000ff"></stop></linearGradient>
       </defs></svg>`;
     document.body.appendChild(svg);
   }
   if (Scratch.gui) Scratch.gui.getBlockly().then((SB) => {
     add2Body();
-    if (!SB?.SPgradients?.patched) { // Gradient Patch by 0znzw & SharkPool
-      SB.SPgradients = {gradientUrls: {}, patched: false};
+    if (!SB?.SPgradients?.patched) {
+      // Gradient Patch by 0znzw & SharkPool
+      SB.SPgradients = { gradientUrls: {}, patched: false };
       const BSP = SB.BlockSvg.prototype, BSPR = BSP.render;
       BSP.render = function(...args) {
+        const blockTheme = ReduxStore.getState().scratchGui?.theme?.theme?.blocks;
         const res = BSPR.apply(this, args);
         let category;
         if (this?.svgPath_ && this?.category_ && (category = this.type.slice(0, this.type.indexOf("_"))) && SB.SPgradients.gradientUrls[category]) {
           const urls = SB.SPgradients.gradientUrls[category];
-          if (urls) this.svgPath_.setAttribute("fill", urls[0]);
+          if (urls) {
+            this.svgPath_.setAttribute("fill", urls[0]);
+            if (blockTheme === "dark") {
+              this.svgPath_.setAttribute("fill-opacity", ".5");
+              this.svgPath_.setAttribute("stroke", "#0daaff");
+            }
+          }
         }
         return res;
       }

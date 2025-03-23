@@ -11,8 +11,8 @@
       "credits": "Fetch and play Youtube videos and statistics in your project. Made by SharkPool and contributed to by Nekl300",
       "url": "extension-code/YouTube-Operations.js",
       "tags": ".all.fetching",
-      "status": "",
-      "date": "Last Updated: 02/10/2024"
+      "status": "update",
+      "date": "Last Updated: 03/18/2025"
     },
     "Time-Calculation": {
       "credits": "Blocks for calculating time differences. Made by SharkPool",
@@ -46,6 +46,7 @@
       "credits": "Outdated Sound Engine for playing sounds. Please use Tune Shark V3. Made by SharkPool, inspired by LilyMakesThings",
       "url": "extension-code/Tune-Shark.js",
       "tags": ".all.utilities.category",
+      "isDeprecated": true,
       "status": "",
       "date": "Last Updated: 10/07/2024"
     },
@@ -59,7 +60,7 @@
     "Geometry-Dash-API": {
       "credits": "Fetch Geometry Dash statistics and information. Made by SharkPool and GD Colon. Thank you RobTopGames.",
       "url": "extension-code/Geometry-Dash-API.js",
-      "tags": ".all.utilities.fetching",
+      "tags": ".all.fetching",
       "status": "",
       "date": "Last Updated: 12/20/2023"
     },
@@ -81,20 +82,28 @@
       "credits": "Powerful and flexible key press detection blocks with some additional features. Made by StackOverflow",
       "url": "extension-code/KeysPlusV2.js",
       "tags": ".all.utilities.expanded.category",
-      "status": "new",
+      "status": "",
       "date": "Released: 02/05/2025"
     },
+    "Popup-Phoenix": {
+      "credits": "Create and design custom Popups! A remaster of 'Better Input'. Made by SharkPool",
+      "url": "extension-code/Popup-Phoenix.js",
+      "tags": ".all.utilities.expanded",
+      "status": "",
+      "date": "Released: 02/19/2025"
+    },
     "Better-Input": {
-      "credits": "Expansion of the 'Ask and Wait' block. Made by SharkPool",
+      "credits": "Expansion of the 'Ask and Wait' block. Deprecated, please use Popup-Phoenix. Made by SharkPool",
       "url": "extension-code/Better-Input.js",
       "tags": ".all.utilities.expanded",
+      "isDeprecated": true,
       "status": "",
       "date": "Last Updated: 11/02/2024"
     },
     "Camera-Sensing-Plus": {
       "credits": "Expansion of the Video Sensing Extension. Display the Camera on Sprites and take Screenshots! Made by SharkPool",
       "url": "extension-code/Camera-Sensing-Plus.js",
-      "tags": ".all.utilities.expanded.fetching.category",
+      "tags": ".all.utilities.expanded.category",
       "status": "",
       "date": "Last Updated: 06/09/2024"
     },
@@ -103,27 +112,35 @@
       "url": "extension-code/Particle-Engine.js",
       "tags": ".all.utilities.expanded",
       "status": "",
-      "date": "Last Updated: 11/24/2024"
+      "date": "Last Updated: 02/22/2025"
     },
     "Particle-Tools": {
       "credits": "Tools that make creating Particle Systems Easy! Made by SharkPool",
       "url": "extension-code/Particle-Tools.js",
       "tags": ".all.utilities",
+      "isDeprecated": true,
       "status": "",
       "date": "Last Updated: 02/04/2024"
+    },
+    "Looks-Expanded": {
+      "credits": "Expansion of the Looks Category. Made by SharkPool and CST",
+      "url": "extension-code/Looks-Expanded.js",
+      "tags": ".all.utilities.expanded.category",
+      "status": "new",
+      "date": "Last Updated: 03/21/2025"
     },
     "Sprite-Effects": {
       "credits": "Apply new, non-vanilla effects and filters to Sprites and the Canvas! Faster than Image Effects. Made by SharkPool",
       "url": "extension-code/Sprite-Effects.js",
       "tags": ".all.utilities.expanded.category",
-      "status": "update",
-      "date": "Last Updated: 02/10/2025"
+      "status": "",
+      "date": "Last Updated: 03/10/2025"
     },
     "Image-Effects": {
       "credits": "Apply new, non-vanilla effects and edits to Images and Sprites! Made by SharkPool",
       "url": "extension-code/Image-Effects.js",
       "tags": ".all.utilities.expanded.category",
-      "status": "update",
+      "status": "",
       "date": "Last Updated: 02/09/2025"
     },
     "Image-Editor": {
@@ -143,7 +160,7 @@
     "Recording": {
       "credits": "Utility blocks for recording yourself while your project runs. Made by SharkPool",
       "url": "extension-code/Recording.js",
-      "tags": ".all.utilities.fetching",
+      "tags": ".all.utilities",
       "status": "",
       "date": "Last Updated: 08/26/2024"
     },
@@ -161,6 +178,13 @@
       "status": "",
       "date": "Last Updated: 02/29/2024"
     },
+    "Rigidbodies": {
+      "credits": "Fast, math-based collision detections using Rigidbodies. Made by SharkPool",
+      "url": "extension-code/Rigidbodies.js",
+      "tags": ".all.utilities.category",
+      "status": "",
+      "date": "Released: 02/28/2025"
+    },
     "Lazy-Collisions": {
       "credits": "Utility blocks that make detecting collisions easy and fast. Made by SharkPool and Food",
       "url": "extension-code/Lazy-Collisions.js",
@@ -174,6 +198,13 @@
       "tags": ".all.expanded.fetching",
       "status": "",
       "date": "Last Updated: 02/01/2025"
+    },
+    "Temporary-Variables": {
+      "credits": "Create temporary variables for sprites, threads, and the project. Made by SharkPool",
+      "url": "extension-code/Temporary-Variables.js",
+      "tags": ".all.utilities.category",
+      "status": "new",
+      "date": "Released: 03/18/2025"
     },
     "Monitors-Plus": {
       "credits": "New Variable Blocks and New Monitor types. Made by SharkPool and DogeIsCut",
@@ -192,7 +223,7 @@
     "Gamepad-Expanded": {
       "credits": "New Blocks added to Garbomuffin's Gamepad Extension. Made by DNin01 and Meehdrescher",
       "url": "extension-code/Gamepad-Expanded.js",
-      "tags": ".all.expanded.utilities",
+      "tags": ".all.expanded.category",
       "status": "",
       "date": "Released: 10/??/2023"
     },
@@ -222,12 +253,12 @@
       "url": "extension-code/Pause-Utilities.js",
       "tags": ".all.utilities",
       "status": "update",
-      "date": "Last Updated: 02/10/2025"
+      "date": "Last Updated: 03/19/2025"
     },
     "Text-to-Speech": {
       "credits": "Better Text to Speech using TikTok API. Made by SharkPool",
       "url": "extension-code/Text-to-Speech.js",
-      "tags": ".all.expanded.fetching.utilities",
+      "tags": ".all.expanded.fetching",
       "status": "",
       "date": "Last Updated: 01/02/2024"
     },
@@ -283,7 +314,7 @@
     "Money-Utilities": {
       "credits": "Convert Currencies and get Currency Information. Made by SharkPool",
       "url": "extension-code/Money-Utilities.js",
-      "tags": ".all.fetching",
+      "tags": ".all.fetching.utilities",
       "status": "",
       "date": "Last Updated: 03/13/2024"
     },
@@ -369,7 +400,7 @@
       "url": "extension-code/Extra-Controls.js",
       "tags": ".all.utilities.expanded.category",
       "status": "",
-      "date": "Last Updated: 11/06/2024"
+      "date": "Last Updated: 03/04/2025"
     },
     "More-Operators": {
       "credits": "New Powerful Operator Blocks. Made by SharkPool",
@@ -430,16 +461,16 @@
     "JSON-Array": {
       "credits": "Super Fast JSON and Array Extension. Made by SharkPool",
       "url": "extension-code/JSON-Array.js",
-      "tags": ".all.utilities",
+      "tags": ".all.utilities.expanded",
       "status": "update",
-      "date": "Last Updated: 01/29/2025"
+      "date": "Last Updated: 03/21/2025"
     },
     "My-Blocks-Plus": {
       "credits": "Better Custom Blocks. Made by SharkPool, CST, and 0znzw",
       "url": "extension-code/My-Blocks-Plus.js",
       "tags": ".all.utilities.expanded.category",
       "status": "",
-      "date": "Last Updated: 12/30/2024"
+      "date": "Last Updated: 03/17/2025"
     },
     "Dropdown-Maker": {
       "credits": "Create Custom Dropdowns! Best paired with My Blocks+. Made by SharkPool, CST, and 0znzw",
@@ -462,10 +493,17 @@
       "status": "",
       "date": "Last Updated: 02/01/2025"
     },
+    "Pen-Papers": {
+      "credits": "Create Multiple Pen Layers! Made by SharkPool, inspired by ObviousAlex",
+      "url": "extension-code/Pen-Papers.js",
+      "tags": ".all.utilities.expanded.category",
+      "status": "new",
+      "date": "Released: 03/18/2025"
+    },
     "Example": {
       "credits": "",
       "url": "",
-      "tags": ".all.utilities.expanded.fetching.searchQ",
+      "tags": ".all.utilities.expanded.fetching.category.addon.searchQ",
       "status": "",
       "date": ""
     }

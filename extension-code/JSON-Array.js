@@ -4,8 +4,7 @@
 // By: SharkPool
 // Licence: MIT
 
-// Version V.1.0.71
-// TODO fix reporter yielding issues
+// Version V.1.0.91
 
 (function (Scratch) {
   "use strict";
@@ -21,6 +20,7 @@
   const runtime = vm.runtime;
 
   const hasOwn = (obj, prop) => Object.prototype.hasOwnProperty.call(obj, prop);
+  let extClass;
 
   // Custom Square Block Shapes
   const ogConverter = runtime._convertBlockForScratchBlocks.bind(runtime);
@@ -31,7 +31,7 @@
   }
 
   const regenReporters = ["SPjson_objKey", "SPjson_objValue", "SPjson_arrValueA", "SPjson_arrValueB"];
-  const jsonBlocks = ["SPjson_jsonValid", "SPjson_jsonBuilder", "SPjson_getKey", "SPjson_getPath", "SPjson_setKey", "SPjson_setPath", "SPjson_deleteKey", "SPjson_jsonSize", "SPjson_keyIndex", "SPjson_getEntry", "SPjson_extractJson", "SPjson_mergeJson", "SPjson_jsonMap"];
+  const jsonBlocks = ["SPjson_objValid", "SPjson_jsonBuilder", "SPjson_getKey", "SPjson_getPath", "SPjson_setKey", "SPjson_setPath", "SPjson_deleteKey", "SPjson_jsonSize", "SPjson_keyIndex", "SPjson_getEntry", "SPjson_extractJson", "SPjson_mergeJson", "SPjson_jsonMap"];
   if (Scratch.gui) Scratch.gui.getBlockly().then(SB => {
     // Regen Reporters
     const ogCheck = SB.scratchBlocksUtils.isShadowArgumentReporter;
@@ -56,7 +56,7 @@
     SB.BlockSvg.prototype.render = function (...args) {
       const data = ogRender.call(this, ...args);
       if (this.svgPath_ && jsonBlocks.includes(this.type)) {
-        if (this.type !== "SPjson_jsonValid") {
+        if (this.type !== "SPjson_jsonValid" && this.type !== "SPjson_objValid") {
           const fixedWidth = this.width - 35;
           this.svgPath_.setAttribute("transform", `scale(1, ${this.height / 40})`);
           this.svgPath_.setAttribute("d", makeShape(this.width));
@@ -64,7 +64,7 @@
         this.inputList.forEach((input) => {
           if (input.name.startsWith("OBJ")) {
             const block = input.connection.targetBlock();
-            if (block && block.svgPath_) {
+            if (block && block.type === "text" && block.svgPath_) {
               block.svgPath_.setAttribute("transform", `scale(1, ${block.height / 40})`);
               block.svgPath_.setAttribute("d", makeShape(block.width));
             }
@@ -75,7 +75,14 @@
     }
   });
 
-  // See Line -- 100
+  // Patch Saving Pure Objects to Variables
+  // We must stringify them for it to work
+  const og2JSON = vm.constructor.prototype.toJSON;
+  vm.constructor.prototype.toJSON = function (optTargetId, serializationOptions) {
+    stringifyVariables();
+    return og2JSON.call(this, optTargetId, serializationOptions);
+  }
+
   function stringifyVariables() {
     for (let i = 0; i < runtime.targets.length; i++) {
       const target = runtime.targets[i];
@@ -96,45 +103,6 @@
       }
     }
   }
-
-  // Patch Saving Pure Objects to Variables
-  // We must stringify them for it to work
-  const beforeSave = () =>
-    new Promise((resolve) => {
-      stringifyVariables();
-      resolve();
-    });
-  const ogSaveProjectSb3 = vm.saveProjectSb3;
-  vm.saveProjectSb3 = async function (...args) {
-    await beforeSave();
-    return await ogSaveProjectSb3.apply(this, args);
-  };
-  const ogSaveProjSb3Stream = vm.saveProjectSb3Stream;
-  vm.saveProjectSb3Stream = function (...args) {
-    let realStream = null;
-    const queuedCalls = [];
-    const whenStreamReady = (methodName, args) => {
-      if (realStream) return realStream[methodName].apply(realStream, args);
-      else return new Promise((resolve) => { queuedCalls.push({ resolve, methodName, args }) });
-    };
-    const streamWrapper = {
-      on: (...args) => void whenStreamReady("on", args), pause: (...args) => void whenStreamReady("pause", args),
-      resume: (...args) => void whenStreamReady("resume", args), accumulate: (...args) => whenStreamReady("accumulate", args)
-    };
-    beforeSave().then(() => {
-      realStream = ogSaveProjSb3Stream.apply(this, args);
-      for (const queued of queuedCalls) queued.resolve(realStream[queued.methodName].apply(realStream, queued.args));
-      queuedCalls.length = 0;
-    });
-    return streamWrapper;
-  };
-
-  // Also do this for Restore Points
-  const ogSaveProjectNonZIP = vm.saveProjectSb3DontZip;
-  vm.saveProjectSb3DontZip = function (...args) {
-    stringifyVariables();
-    return ogSaveProjectNonZIP.apply(this, args);
-  };
 
   // Modify Visual Report to stringify JSON
   const ogVisReport = runtime.visualReport;
@@ -171,14 +139,198 @@
     });
   }
 
+  // Compiler Patches
+  // TODO remove this when there is a dedicated API for refreshing block arguments
+  const generateParser = (type, alwaysTryParse) => {
+    if (!alwaysTryParse) return `(o) => {return o}`;
+
+    const defaultV = type === undefined ? "o" : type === 0 ? "{}" : "[]";
+    let funcString = `(o) => {\n`;
+
+    if (type === undefined) funcString += `if (typeof o === "object") return o;\n`;
+    else if (type === 0) funcString += `if (o.constructor?.name === "Object") return o;\n`;
+    else funcString += `if (Array.isArray(o)) return o;\n`;
+
+    funcString += `try {\n`;
+    funcString += `const p = JSON.parse(o);\n`;
+    if (type === undefined) funcString += `return p;\n`;
+    else if (type === 0) funcString += `return p.constructor?.name === "Object" ? p : ${defaultV};\n`;
+    else funcString += `return Array.isArray(p) ? p : ${defaultV};\n`;
+    funcString += `} catch {return ${defaultV}}\n`;
+    return funcString + "}";
+  }
+  const generateCleanser = (type) => {
+    let funcString = `(() => {\n`;
+    funcString += `const t = typeof ${type};\n`;
+    funcString += `if (t === "undefined") return "";\n`;
+    funcString += `else if (t === "object") return JSON.stringify(${type});\n`;
+    funcString += `else return ${type}.toString();\n`;
+    return funcString + "})()";
+  }
+
+  function getCompiler() {
+    if (vm.exports.i_will_not_ask_for_help_when_these_break) return vm.exports.i_will_not_ask_for_help_when_these_break();
+    else if (vm.exports.JSGenerator && vm.exports.IRGenerator?.exports) return {
+      ...vm.exports, ScriptTreeGenerator: vm.exports.IRGenerator.exports.ScriptTreeGenerator
+    };
+  }
+  const compiler = getCompiler();
+  if (compiler) {
+    const { JSGenerator, ScriptTreeGenerator } = compiler;
+    const _ogIRdescendInp = ScriptTreeGenerator.prototype.descendInput;
+    const exp = JSGenerator.exports === undefined ? JSGenerator.unstable_exports : JSGenerator.exports;
+    ScriptTreeGenerator.prototype.descendInput = function (block) {
+      switch (block.opcode) {
+        case "SPjson_arrValueA": return { kind: "SPjson.arrValA" };
+        case "SPjson_arrValueB": return { kind: "SPjson.arrValB" };
+        case "SPjson_objKey": return { kind: "SPjson.objKey" };
+        case "SPjson_objValue": return { kind: "SPjson.objVal" };
+        case "SPjson_jsonMap":
+          return {
+            kind: "SPjson.jsonMap",
+            obj: this.descendInputOfBlock(block, "OBJ"), value: this.descendInputOfBlock(block, "VALUE")
+          };
+        case "SPjson_arrCheck":
+          return {
+            kind: "SPjson.arrCheck", type: block.fields.TYPE.value,
+            array: this.descendInputOfBlock(block, "ARR"), bool: this.descendInputOfBlock(block, "BOOL"),
+          };
+        case "SPjson_arrMap":
+          return {
+            kind: "SPjson.arrMap",
+            array: this.descendInputOfBlock(block, "ARR"), value: this.descendInputOfBlock(block, "VALUE")
+          };
+        case "SPjson_arrSort":
+          return {
+            kind: "SPjson.arrSort",
+            array: this.descendInputOfBlock(block, "ARR"), value: this.descendInputOfBlock(block, "VALUE")
+          };
+        case "SPjson_filterNew":
+          return {
+            kind: "SPjson.filter", type: block.fields.TYPE.value,
+            obj: this.descendInputOfBlock(block, "OBJ"), bool: this.descendInputOfBlock(block, "BOOL")
+          };
+        default: return _ogIRdescendInp.call(this, block);
+      }
+    };
+    const _ogJSdescendInp = JSGenerator.prototype.descendInput;
+    JSGenerator.prototype.descendInput = function (node) {
+      if (node === undefined) return;
+      switch (node.kind) {
+        case "SPjson.arrValA": return new exp.TypedInput(generateCleanser("SParrA"), exp.TYPE_STRING);
+        case "SPjson.arrValB": return new exp.TypedInput(generateCleanser("SParrB"), exp.TYPE_STRING);
+        case "SPjson.objKey": return new exp.TypedInput(generateCleanser("SPobjK"), exp.TYPE_STRING);
+        case "SPjson.objVal": return new exp.TypedInput(generateCleanser("SPobjV"), exp.TYPE_STRING);
+        case "SPjson.jsonMap": {
+          const safeObj = this.descendInput(node.obj).asUnknown();
+          const safeValue = this.descendInput(node.value).asUnknown();
+          return new exp.TypedInput(`(function() {
+            function* generator() {
+              const p = (${generateParser(0, extClass.alwaysTryParse)})(${safeObj});
+              const e = Object.entries(p);
+              for (const [SPobjK, SPobjV] of e) yield [SPobjK, ${safeValue}];
+            }
+            return Object.fromEntries(generator());
+          })()`, exp.TYPE_UNKNOWN);
+        }
+        case "SPjson.arrCheck": {
+          const safeObj = this.descendInput(node.array).asUnknown();
+          const safeBool = this.descendInput(node.bool).asBoolean();
+          return new exp.TypedInput(`(function() {
+            function* generator() {
+              const p = (${generateParser(1, extClass.alwaysTryParse)})(${safeObj});
+              yield p.${node.type === "some" ? "some" : "every"}((SPobjV, SPobjK) => {
+                SPobjK++;
+                return ${safeBool};
+              });
+            }
+            return [...generator()][0];
+          })()`, exp.TYPE_BOOLEAN);
+        }
+        case "SPjson.arrMap": {
+          const safeObj = this.descendInput(node.array).asUnknown();
+          const safeValue = this.descendInput(node.value).asUnknown();
+          return new exp.TypedInput(`(function() {
+            function* generator() {
+              const p = (${generateParser(1, extClass.alwaysTryParse)})(${safeObj});
+              let SPobjK = 1;
+              for (const SPobjV of p) {
+                yield ${safeValue};
+                SPobjK++;
+              }
+            }
+            return [...generator()];
+          })()`, exp.TYPE_UNKNOWN);
+        }
+        case "SPjson.arrSort": {
+          const safeObj = this.descendInput(node.array).asUnknown();
+          const safeValue = this.descendInput(node.value).asUnknown();
+          return new exp.TypedInput(`(function() {
+            function* generator() {
+              const p = (${generateParser(1, extClass.alwaysTryParse)})(${safeObj});
+              const sorted = [...p].sort((SParrA, SParrB) => { return ${safeValue}; });
+              for (const item of sorted) yield item;
+            }
+            return [...generator()];
+          })()`, exp.TYPE_UNKNOWN);
+        }
+        case "SPjson.filter": {
+          const safeObj = this.descendInput(node.obj).asUnknown();
+          const safeBool = this.descendInput(node.bool).asBoolean();
+          return new exp.TypedInput(`(function() {
+            function* generator() {
+              const p = (${generateParser(undefined, extClass.alwaysTryParse)})(${safeObj});
+              const e = Object.entries(p);
+              const isO = p.constructor?.name === "Object";
+
+              if (${node.type === "filter"}) {
+                if (isO) {
+                  const result = {};
+                  for (let [SPobjK, SPobjV] of e) {
+                    if (${safeBool}) result[SPobjK] = SPobjV;
+                  }
+                  yield result;
+                } else {
+                  const result = [];
+                  for (let [SPobjK, SPobjV] of e) {
+                    SPobjK++;
+                    if (${safeBool}) result.push(SPobjV);
+                  }
+                  yield result;
+                }
+              } else {
+                const n = [];
+                for (let [SPobjK, SPobjV] of e) {
+                  if (isO) {
+                    if (${safeBool}) n.unshift([SPobjK, SPobjV]);
+                    else n.push([SPobjK, SPobjV]);
+                  } else {
+                    SPobjK++;
+                    if (${safeBool}) n.unshift(SPobjV);
+                    else n.push(SPobjV);
+                  }
+                }
+                yield isO ? Object.fromEntries(n) : n;
+              }
+            }
+            return [...generator()][0];
+          })()`, exp.TYPE_UNKNOWN);
+        }
+        default: return _ogJSdescendInp.call(this, node);
+      }
+    };
+  }
+
   class SPjson {
     constructor() {
       this.settings = [
         { text: "always cast values", value: "alwaysCast" },
         { text: "always parse text objects", value: "alwaysParse" },
-        { text: "dont edit source objects", value: "useNewObj" }
+        { text: "always try parsing", value: "alwaysTryParse" },
+        { text: "dont edit source objects", value: "useNewObj" },
       ];
-      this.alwaysCast = true; this.alwaysParse = true; this.useNewObj = true;
+      this.alwaysCast = true; this.alwaysParse = true;
+      this.alwaysTryParse = true; this.useNewObj = true;
     }
     getInfo() {
       return {
@@ -194,9 +346,9 @@
           },
           { blockType: Scratch.BlockType.LABEL, text: "JSON" },
           {
-            opcode: "jsonValid",
+            opcode: "objValid",
             blockType: Scratch.BlockType.BOOLEAN,
-            text: "is JSON [OBJ] valid?",
+            text: "is object [OBJ] valid?",
             arguments: {
               OBJ: { type: Scratch.ArgumentType.STRING, defaultValue: `{"key":"value"}`, exemptFromNormalization: true },
             },
@@ -377,6 +529,17 @@
             },
           },
           {
+            opcode: "arrSwap",
+            blockType: Scratch.BlockType.REPORTER,
+            text: "swap item [IND1] with item [IND2] in [ARR]",
+            outputShape: 3,
+            arguments: {
+              IND1: { type: Scratch.ArgumentType.NUMBER, defaultValue: 1 },
+              IND2: { type: Scratch.ArgumentType.STRING, defaultValue: 3 },
+              ARR: { type: Scratch.ArgumentType.STRING, defaultValue: `["a", "b", "c"]`, exemptFromNormalization: true }
+            },
+          },
+          {
             opcode: "arrDelete",
             blockType: Scratch.BlockType.REPORTER,
             text: "delete item [IND] in [ARR]",
@@ -532,6 +695,14 @@
           },
           { blockType: Scratch.BlockType.LABEL, text: "Utilities" },
           {
+            opcode: "jsonValid",
+            blockType: Scratch.BlockType.BOOLEAN,
+            text: "is JSON [OBJ] valid?",
+            arguments: {
+              OBJ: { type: Scratch.ArgumentType.STRING, defaultValue: `{"key":"value"}`, exemptFromNormalization: true },
+            },
+          },
+          {
             opcode: "parse",
             blockType: Scratch.BlockType.REPORTER,
             text: "parse [OBJ]",
@@ -683,13 +854,21 @@
 
     // Helper Funcs
     tryParse(obj, optType) {
-      if ((optType === 1 && Array.isArray(obj)) || (optType === 0 && typeof obj === "object"))
-        return this.useNewObj ? structuredClone(obj) : obj;
+      if (!this.alwaysTryParse) return obj;
+      if (
+        (optType === 1 && Array.isArray(obj)) ||
+        (optType === 0 && obj.constructor?.name === "Object") ||
+        (optType === undefined && typeof obj === "object")
+      ) return this.useNewObj ? structuredClone(obj) : obj;
       const defaultV = optType === undefined ? obj : optType === 0 ? {} : [];
       try {
         if (this.alwaysParse) {
           const parsed = JSON.parse(obj);
-          return typeof parsed === "object" ? parsed : defaultV;
+          return (
+            (optType === 1 && Array.isArray(parsed)) ||
+            (optType === 0 && parsed.constructor?.name === "Object") ||
+            optType === undefined
+          ) ? parsed : defaultV;
         }
         return defaultV;
       } catch {
@@ -711,11 +890,13 @@
       const thisBlock = util.thread.stackFrames[0].myID ?? util.thread.blockContainer.getBlock(
         wasCompiled ? util.thread.peekStack() : util.thread.peekStackFrame().op?.id
       );
-      if (!thisBlock) return true;
+      if (!thisBlock) return true; // abort!
 
       util.thread.stackFrames[0].myID = thisBlock;
       util.thread.peekStackFrame().isLoop = true;
-      if (thisBlock.inputs.BOOL && thisBlock.inputs.BOOL.block) util.thread.pushStack(thisBlock.inputs.BOOL.block);
+
+      const pushBlock = thisBlock.inputs.BOOL?.block || thisBlock.inputs.VALUE?.block;
+      if (pushBlock) util.thread.pushStack(pushBlock);
       util.yield();
     }
 
@@ -779,20 +960,9 @@
     }
 
     // JSON Funcs
-    jsonValid(args) {
-      const obj = args.OBJ;
-      const type = typeof obj;
-      if (type === "object") return true;
-      if (this.alwaysParse) {
-        if (type != "string") return false;
-        try {
-          JSON.parse(obj);
-          return true;
-        } catch {
-          return false;
-        }
-      }
-      return false;
+    objValid(args) {
+      const obj = this.tryParse(args.OBJ);
+      return typeof obj === "object" && obj.constructor?.name === "Object";
     }
 
     jsonBuilder(args) { return { [args.KEY] : this.toSafe(args.VAL) } }
@@ -921,6 +1091,14 @@
       const arr = this.tryParse(args.ARR, 1);
       const ind = this.toArrInd(args.IND);
       if (arr.length > ind) arr[ind] = this.toSafe(args.ITEM);
+      return arr;
+    }
+
+    arrSwap(args) {
+      const arr = this.tryParse(args.ARR, 1);
+      const ind1 = this.toArrInd(args.IND1);
+      const ind2 = this.toArrInd(args.IND2);
+      [arr[ind1], arr[ind2]] = [arr[ind2], arr[ind1]];
       return arr;
     }
 
@@ -1099,6 +1277,22 @@
     }
 
     // Util Funcs
+    jsonValid(args) {
+      const obj = args.OBJ;
+      const type = typeof obj;
+      if (type === "object") return true;
+      if (this.alwaysParse) {
+        if (type != "string") return false;
+        try {
+          JSON.parse(obj);
+          return true;
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    }
+
     parse(args) {
       const obj = args.OBJ;
       if (typeof obj === "object") return obj;
@@ -1233,5 +1427,6 @@
     }
   }
 
-  Scratch.extensions.register(new SPjson());
+  extClass = new SPjson();
+  Scratch.extensions.register(extClass);
 })(Scratch);

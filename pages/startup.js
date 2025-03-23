@@ -106,13 +106,13 @@ function filterExts(json, searchQ) {
     if (newEntries.length === 0) return {"override404": { url: "", credits: "", date: "" }};
     else return Object.fromEntries(newEntries);
   } else if (currentTag === "all") {
-    // order by newest => updated => old
+    // order by newest => updated => old, hide deprecated
     entries.forEach((entry) => {
       if (entry[1].status === "update") newEntries.unshift(entry);
     });
     entries.forEach((entry) => {
       if (entry[1].status === "new") newEntries.unshift(entry);
-      else newEntries.push(entry);
+      else if (!entry[1].isDeprecated) newEntries.push(entry);
     });
   } else {
     // order by tag
@@ -210,7 +210,7 @@ async function downloadExt(name, data) {
     messager.postMessage({
       loadExt: `https://sharkpools-extensions.vercel.app/${data.url}`
     }, "https://studio.penguinmod.com");
-    genText("center-notif", "Copied to PenguinMod!");
+    genText("center-notif", "Copied to PenguinMod! Check the Editor");
   } else {
     if (downloadType === "download") {
       fetch(data.url)
@@ -260,10 +260,8 @@ function openSearch() {
   input.type = "text";
   input.addEventListener("change", (e) => query = e.target.value);
   input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      displayExts(filterExts(galleryData.extensions, e.target.value));
-      searchContainer.remove();
-    }
+    displayExts(filterExts(galleryData.extensions, e.target.value), true);
+    if (e.key === "Enter") searchContainer.remove();
   });
 
   const submit = document.createElement("img");
@@ -271,7 +269,6 @@ function openSearch() {
   submit.src = "Gallery%20Files/main-assets/search-enter.svg";
   submit.setAttribute("draggable", "false");
   submit.addEventListener("click", (e) => {
-    displayExts(filterExts(galleryData.extensions, query));
     searchContainer.remove();
     e.stopImmediatePropagation();
   });
@@ -296,7 +293,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!galleryData.site["is up"]) window.location.href = "pages/down.html";
   else {
     const params = new URLSearchParams(location.search);
-    isPenguinMod = Boolean(params.get("originPM"));
+    isPenguinMod = params.get("originPM") === "true";
     getCleanStorage();
     currentTag = params.get("tag") || currentTag;
     addBtnBehaviours();
